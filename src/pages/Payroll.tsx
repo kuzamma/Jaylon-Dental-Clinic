@@ -50,15 +50,13 @@ const Payroll: React.FC = () => {
     const overtimePay = overtimeHours * employee.hourlyRate * 1.5; // Time and a half
     const grossPay = regularPay + overtimePay;
     
-    // Calculate deductions (simplified)
-    const taxRate = 0.22; // 22% tax rate
-    const socialSecurityRate = 0.062; // 6.2%
-    const medicareRate = 0.0145; // 1.45%
+    // Calculate Philippine deductions
+    const withholdingTax = calculateWithholdingTax(grossPay); // Philippine withholding tax
+    const sssContribution = calculateSSS(grossPay); // SSS contribution
+    const philHealthContribution = calculatePhilHealth(grossPay); // PhilHealth contribution
+    const pagIbigContribution = calculatePagIbig(grossPay); // Pag-IBIG contribution
     
-    const federalTax = grossPay * taxRate;
-    const socialSecurity = grossPay * socialSecurityRate;
-    const medicare = grossPay * medicareRate;
-    const totalDeductions = federalTax + socialSecurity + medicare;
+    const totalDeductions = withholdingTax + sssContribution + philHealthContribution + pagIbigContribution;
     
     const netPay = grossPay - totalDeductions;
 
@@ -71,11 +69,48 @@ const Payroll: React.FC = () => {
       deductions: Math.round(totalDeductions * 100) / 100,
       netPay: Math.round(netPay * 100) / 100,
       taxBreakdown: {
-        federalTax: Math.round(federalTax * 100) / 100,
-        socialSecurity: Math.round(socialSecurity * 100) / 100,
-        medicare: Math.round(medicare * 100) / 100,
+        withholdingTax: Math.round(withholdingTax * 100) / 100,
+        sssContribution: Math.round(sssContribution * 100) / 100,
+        philHealthContribution: Math.round(philHealthContribution * 100) / 100,
+        pagIbigContribution: Math.round(pagIbigContribution * 100) / 100,
       }
     };
+  };
+
+  // Philippine tax calculation functions
+  const calculateWithholdingTax = (grossPay: number): number => {
+    // Simplified Philippine withholding tax calculation (monthly basis)
+    if (grossPay <= 20833) return 0; // Below minimum taxable income
+    if (grossPay <= 33333) return (grossPay - 20833) * 0.15;
+    if (grossPay <= 66667) return 1875 + (grossPay - 33333) * 0.20;
+    if (grossPay <= 166667) return 8541.80 + (grossPay - 66667) * 0.25;
+    if (grossPay <= 666667) return 33541.80 + (grossPay - 166667) * 0.30;
+    return 183541.80 + (grossPay - 666667) * 0.35;
+  };
+
+  const calculateSSS = (grossPay: number): number => {
+    // SSS contribution table (2024 rates)
+    if (grossPay < 4000) return 180; // Minimum contribution
+    if (grossPay >= 30000) return 1350; // Maximum contribution
+    
+    // Calculate based on salary bracket (simplified)
+    const bracket = Math.floor(grossPay / 1000) * 1000;
+    return Math.min(bracket * 0.045, 1350); // 4.5% employee share, max 1350
+  };
+
+  const calculatePhilHealth = (grossPay: number): number => {
+    // PhilHealth contribution (2024 rates)
+    const monthlyBasicSalary = grossPay;
+    if (monthlyBasicSalary <= 10000) return 500; // Minimum contribution
+    if (monthlyBasicSalary >= 100000) return 5000; // Maximum contribution
+    
+    return monthlyBasicSalary * 0.05; // 5% of basic salary (employee share is 2.5%)
+  };
+
+  const calculatePagIbig = (grossPay: number): number => {
+    // Pag-IBIG contribution (2024 rates)
+    if (grossPay <= 1500) return grossPay * 0.01; // 1% for salary ≤ 1,500
+    return Math.min(grossPay * 0.02, 200); // 2% for salary > 1,500, max 200
   };
 
   const generatePayroll = async () => {
@@ -91,13 +126,13 @@ const Payroll: React.FC = () => {
       let successCount = 0;
       let errorCount = 0;
 
-      setGenerationStatus(`Processing ${activeEmployees.length} employees...`);
+      setGenerationStatus(`Processing ₱{activeEmployees.length} employees...`);
 
       for (const employee of activeEmployees) {
         try {
           const calculation = calculatePayroll(employee.id, startDate, endDate);
           if (!calculation) {
-            console.warn(`No calculation data for employee ${employee.id}`);
+            console.warn(`No calculation data for employee ₱{employee.id}`);
             continue;
           }
 
@@ -108,7 +143,7 @@ const Payroll: React.FC = () => {
           );
 
           if (!existingPayroll) {
-            setGenerationStatus(`Processing ${employee.firstName} ${employee.lastName}...`);
+            setGenerationStatus(`Processing ₱{employee.firstName} ₱{employee.lastName}...`);
             
             const newPayrollEntry: Omit<PayrollEntry, 'id'> = {
               employeeId: employee.id,
@@ -126,10 +161,10 @@ const Payroll: React.FC = () => {
             await createPayroll(newPayrollEntry);
             successCount++;
           } else {
-            console.log(`Payroll already exists for ${employee.firstName} ${employee.lastName}`);
+            console.log(`Payroll already exists for ₱{employee.firstName} ₱{employee.lastName}`);
           }
         } catch (error) {
-          console.error(`Error processing payroll for employee ${employee.id}:`, error);
+          console.error(`Error processing payroll for employee ₱{employee.id}:`, error);
           errorCount++;
         }
       }
@@ -137,7 +172,7 @@ const Payroll: React.FC = () => {
       setGenerationStatus('Refreshing data...');
       await refreshData();
 
-      const message = `Payroll generation completed!\n\nSuccessfully processed: ${successCount} employees\nErrors: ${errorCount} employees\n\nPayroll entries have been created and are ready for review.`;
+      const message = `Payroll generation completed!\n\nSuccessfully processed: ₱{successCount} employees\nErrors: ₱{errorCount} employees\n\nPayroll entries have been created and are ready for review.`;
       alert(message);
       
     } catch (error) {
@@ -157,8 +192,8 @@ const Payroll: React.FC = () => {
       const payrollEntry = payroll.find(entry => entry.id === payrollId);
       if (payrollEntry) {
         const employee = employees.find(emp => emp.id === payrollEntry.employeeId);
-        const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : 'Employee';
-        alert(`✅ ${employeeName}'s payroll status updated to "${status}"`);
+        const employeeName = employee ? `₱{employee.firstName} ₱{employee.lastName}` : 'Employee';
+        alert(`✅ ₱{employeeName}'s payroll status updated to "₱{status}"`);
       }
     } catch (error) {
       console.error('Error updating payroll status:', error);
@@ -168,7 +203,7 @@ const Payroll: React.FC = () => {
 
   const getEmployeeName = (employeeId: string) => {
     const employee = employees.find(emp => emp.id === employeeId);
-    return employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown';
+    return employee ? `₱{employee.firstName} ₱{employee.lastName}` : 'Unknown';
   };
 
   const getStatusIcon = (status: string) => {
@@ -229,7 +264,7 @@ const Payroll: React.FC = () => {
                     <p><span className="font-medium">Name:</span> {employee.firstName} {employee.lastName}</p>
                     <p><span className="font-medium">Position:</span> {employee.position}</p>
                     <p><span className="font-medium">Employee ID:</span> {employee.id}</p>
-                    <p><span className="font-medium">Hourly Rate:</span> ${employee.hourlyRate.toFixed(2)}</p>
+                    <p><span className="font-medium">Hourly Rate:</span> ₱{employee.hourlyRate.toFixed(2)}</p>
                   </div>
                 </div>
                 
@@ -238,8 +273,8 @@ const Payroll: React.FC = () => {
                   <div className="text-sm space-y-1">
                     <p><span className="font-medium">Regular Hours:</span> {payrollEntry.regularHours.toFixed(2)}</p>
                     <p><span className="font-medium">Overtime Hours:</span> {payrollEntry.overtimeHours.toFixed(2)}</p>
-                    <p><span className="font-medium">Gross Pay:</span> ${(payrollEntry.regularPay + payrollEntry.overtimePay).toFixed(2)}</p>
-                    <p><span className="font-medium">Net Pay:</span> ${payrollEntry.netPay.toFixed(2)}</p>
+                    <p><span className="font-medium">Gross Pay:</span> ₱{(payrollEntry.regularPay + payrollEntry.overtimePay).toFixed(2)}</p>
+                    <p><span className="font-medium">Net Pay:</span> ₱{payrollEntry.netPay.toFixed(2)}</p>
                   </div>
                 </div>
               </div>
@@ -258,15 +293,15 @@ const Payroll: React.FC = () => {
                       <tbody>
                         <tr className="border-t">
                           <td className="px-3 py-2">Regular Pay</td>
-                          <td className="px-3 py-2 text-right">${payrollEntry.regularPay.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">₱{payrollEntry.regularPay.toFixed(2)}</td>
                         </tr>
                         <tr className="border-t">
                           <td className="px-3 py-2">Overtime Pay</td>
-                          <td className="px-3 py-2 text-right">${payrollEntry.overtimePay.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">₱{payrollEntry.overtimePay.toFixed(2)}</td>
                         </tr>
                         <tr className="border-t bg-gray-50 font-medium">
                           <td className="px-3 py-2">Gross Pay</td>
-                          <td className="px-3 py-2 text-right">${(payrollEntry.regularPay + payrollEntry.overtimePay).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">₱{(payrollEntry.regularPay + payrollEntry.overtimePay).toFixed(2)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -285,20 +320,24 @@ const Payroll: React.FC = () => {
                       </thead>
                       <tbody>
                         <tr className="border-t">
-                          <td className="px-3 py-2">Federal Tax</td>
-                          <td className="px-3 py-2 text-right">${calculation?.taxBreakdown.federalTax.toFixed(2) || '0.00'}</td>
+                          <td className="px-3 py-2">Philippine withholding tax</td>
+                          <td className="px-3 py-2 text-right">₱{calculation?.taxBreakdown.withholdingTax.toFixed(2) || '0.00'}</td>
                         </tr>
                         <tr className="border-t">
-                          <td className="px-3 py-2">Social Security</td>
-                          <td className="px-3 py-2 text-right">${calculation?.taxBreakdown.socialSecurity.toFixed(2) || '0.00'}</td>
+                          <td className="px-3 py-2">SSS contribution </td>
+                          <td className="px-3 py-2 text-right">₱{calculation?.taxBreakdown.sssContribution.toFixed(2) || '0.00'}</td>
                         </tr>
                         <tr className="border-t">
-                          <td className="px-3 py-2">Medicare</td>
-                          <td className="px-3 py-2 text-right">${calculation?.taxBreakdown.medicare.toFixed(2) || '0.00'}</td>
+                          <td className="px-3 py-2">PhilHealth contribution</td>
+                          <td className="px-3 py-2 text-right">₱{calculation?.taxBreakdown.philHealthContribution.toFixed(2) || '0.00'}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2">Pag-IBIG contribution</td>
+                          <td className="px-3 py-2 text-right">₱{calculation?.taxBreakdown.pagIbigContribution.toFixed(2) || '0.00'}</td>
                         </tr>
                         <tr className="border-t bg-gray-50 font-medium">
                           <td className="px-3 py-2">Total Deductions</td>
-                          <td className="px-3 py-2 text-right">${payrollEntry.deductions.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">₱{payrollEntry.deductions.toFixed(2)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -309,7 +348,7 @@ const Payroll: React.FC = () => {
               <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-medium text-gray-900">Net Pay</span>
-                  <span className="text-2xl font-bold text-blue-600">${payrollEntry.netPay.toFixed(2)}</span>
+                  <span className="text-2xl font-bold text-blue-600">₱{payrollEntry.netPay.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -351,7 +390,7 @@ const Payroll: React.FC = () => {
             disabled={loading}
             className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ₱{loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
           <button
@@ -408,7 +447,7 @@ const Payroll: React.FC = () => {
             <DollarSign className="h-8 w-8 text-green-500" />
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Total Payroll</p>
-              <p className="text-2xl font-bold text-gray-900">${totalPayroll.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">₱{totalPayroll.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -418,7 +457,7 @@ const Payroll: React.FC = () => {
             <CheckCircle className="h-8 w-8 text-blue-500" />
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Paid Amount</p>
-              <p className="text-2xl font-bold text-gray-900">${paidAmount.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">₱{paidAmount.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -520,18 +559,18 @@ const Payroll: React.FC = () => {
                         {entry.overtimeHours.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${(entry.regularPay + entry.overtimePay).toFixed(2)}
+                        ₱{(entry.regularPay + entry.overtimePay).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${entry.deductions.toFixed(2)}
+                        ₱{entry.deductions.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ${entry.netPay.toFixed(2)}
+                        ₱{entry.netPay.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           {getStatusIcon(entry.status)}
-                          <span className={`ml-2 text-sm font-medium capitalize ${
+                          <span className={`ml-2 text-sm font-medium capitalize ₱{
                             entry.status === 'paid' ? 'text-green-800' :
                             entry.status === 'processed' ? 'text-yellow-800' :
                             'text-red-800'

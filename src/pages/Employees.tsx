@@ -632,7 +632,7 @@ const Employees: React.FC = () => {
                   {employee.phone}
                 </div>
                 <div className="text-sm text-gray-600">
-                  <span className="font-medium">Rate:</span> ${employee.hourlyRate}/hr
+                  <span className="font-medium">Rate:</span> ₱{employee.hourlyRate}/hr
                 </div>
                 <div className="text-sm text-gray-600">
                   <span className="font-medium">Hired:</span> {format(new Date(employee.hireDate), 'MMM dd, yyyy')}

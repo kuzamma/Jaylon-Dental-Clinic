@@ -22,10 +22,14 @@ import {
   Eye,
   EyeOff,
   Save,
-  X
+  X,
+  Download,
+  FileText
 } from 'lucide-react';
 import QRCodeScanner from './QRCodeScanner';
 import QRCodeGenerator from './QRCodeGenerator';
+import Footer from './Footer';
+
 
 interface EmployeePortalProps {
   onLogout: () => void;
@@ -48,6 +52,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
   const [isProcessingAttendance, setIsProcessingAttendance] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showPayrollSlip, setShowPayrollSlip] = useState<any>(null);
 
   // Get current employee (assuming first employee for demo)
   const currentEmployee = employees[0];
@@ -82,6 +87,34 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
   const todayAttendance = employeeAttendance.find(record => 
     isToday(parseISO(record.date))
   );
+
+  // Philippine tax calculation functions
+  const calculateWithholdingTax = (grossPay: number): number => {
+    if (grossPay <= 20833) return 0;
+    if (grossPay <= 33333) return (grossPay - 20833) * 0.15;
+    if (grossPay <= 66667) return 1875 + (grossPay - 33333) * 0.20;
+    if (grossPay <= 166667) return 8541.80 + (grossPay - 66667) * 0.25;
+    if (grossPay <= 666667) return 33541.80 + (grossPay - 166667) * 0.30;
+    return 183541.80 + (grossPay - 666667) * 0.35;
+  };
+
+  const calculateSSS = (grossPay: number): number => {
+    if (grossPay < 4000) return 180;
+    if (grossPay >= 30000) return 1350;
+    const bracket = Math.floor(grossPay / 1000) * 1000;
+    return Math.min(bracket * 0.045, 1350);
+  };
+
+  const calculatePhilHealth = (grossPay: number): number => {
+    if (grossPay <= 10000) return 500;
+    if (grossPay >= 100000) return 5000;
+    return grossPay * 0.025; // 2.5% employee share
+  };
+
+  const calculatePagIbig = (grossPay: number): number => {
+    if (grossPay <= 1500) return grossPay * 0.01;
+    return Math.min(grossPay * 0.02, 200);
+  };
 
   // Handle QR code scan
   const handleQRScan = async (qrData: string) => {
@@ -156,6 +189,413 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
   };
 
   const attendanceStatus = getAttendanceStatus();
+
+  // Payroll Slip Modal Component
+  const PayrollSlipModal: React.FC<{ payrollEntry: any }> = ({ payrollEntry }) => {
+    const grossPay = payrollEntry.regularPay + payrollEntry.overtimePay;
+    
+    // Calculate Philippine deductions
+    const withholdingTax = calculateWithholdingTax(grossPay);
+    const sssContribution = calculateSSS(grossPay);
+    const philHealthContribution = calculatePhilHealth(grossPay);
+    const pagIbigContribution = calculatePagIbig(grossPay);
+
+    const printPayrollSlip = () => {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Payroll Slip - ${currentEmployee.firstName} ${currentEmployee.lastName}</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background: white;
+              }
+              .payroll-slip {
+                max-width: 800px;
+                margin: 0 auto;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                overflow: hidden;
+              }
+              .header {
+                background: #1f2937;
+                color: white;
+                padding: 20px;
+                text-align: center;
+              }
+              .company-name {
+                font-size: 24px;
+                font-weight: bold;
+                margin-bottom: 5px;
+              }
+              .document-title {
+                font-size: 18px;
+                opacity: 0.9;
+              }
+              .content {
+                padding: 30px;
+              }
+              .employee-info {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 30px;
+                margin-bottom: 30px;
+                padding: 20px;
+                background: #f9fafb;
+                border-radius: 8px;
+              }
+              .info-section h3 {
+                font-size: 16px;
+                font-weight: bold;
+                color: #1f2937;
+                margin-bottom: 10px;
+                border-bottom: 2px solid #e5e7eb;
+                padding-bottom: 5px;
+              }
+              .info-item {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 8px;
+                font-size: 14px;
+              }
+              .info-label {
+                font-weight: 500;
+                color: #6b7280;
+              }
+              .info-value {
+                font-weight: 600;
+                color: #1f2937;
+              }
+              .earnings-deductions {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 30px;
+                margin-bottom: 30px;
+              }
+              .section {
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                overflow: hidden;
+              }
+              .section-header {
+                background: #f3f4f6;
+                padding: 15px;
+                font-weight: bold;
+                color: #1f2937;
+                border-bottom: 1px solid #e5e7eb;
+              }
+              .section-content {
+                padding: 0;
+              }
+              .line-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 12px 15px;
+                border-bottom: 1px solid #f3f4f6;
+                font-size: 14px;
+              }
+              .line-item:last-child {
+                border-bottom: none;
+              }
+              .line-item.total {
+                background: #f9fafb;
+                font-weight: bold;
+                border-top: 2px solid #e5e7eb;
+              }
+              .net-pay {
+                background: #dbeafe;
+                border: 2px solid #3b82f6;
+                border-radius: 8px;
+                padding: 20px;
+                text-align: center;
+                margin-top: 20px;
+              }
+              .net-pay-label {
+                font-size: 18px;
+                font-weight: 600;
+                color: #1f2937;
+                margin-bottom: 5px;
+              }
+              .net-pay-amount {
+                font-size: 32px;
+                font-weight: bold;
+                color: #1d4ed8;
+              }
+              .footer {
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #e5e7eb;
+                text-align: center;
+                font-size: 12px;
+                color: #6b7280;
+              }
+              @media print {
+                body { margin: 0; padding: 10px; }
+                .payroll-slip { border: 1px solid #000; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="payroll-slip">
+              <div class="header">
+                <div class="company-name">Jaylon Dental Clinic</div>
+                <div class="document-title">Payroll Slip</div>
+              </div>
+              
+              <div class="content">
+                <div class="employee-info">
+                  <div class="info-section">
+                    <h3>Employee Information</h3>
+                    <div class="info-item">
+                      <span class="info-label">Name:</span>
+                      <span class="info-value">${currentEmployee.firstName} ${currentEmployee.lastName}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">Position:</span>
+                      <span class="info-value">${currentEmployee.position}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">Department:</span>
+                      <span class="info-value">${currentEmployee.department}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">Employee ID:</span>
+                      <span class="info-value">${currentEmployee.id}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="info-section">
+                    <h3>Pay Period</h3>
+                    <div class="info-item">
+                      <span class="info-label">Period:</span>
+                      <span class="info-value">${format(parseISO(payrollEntry.payPeriodStart), 'MMM dd')} - ${format(parseISO(payrollEntry.payPeriodEnd), 'MMM dd, yyyy')}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">Hourly Rate:</span>
+                      <span class="info-value">₱${currentEmployee.hourlyRate.toFixed(2)}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">Regular Hours:</span>
+                      <span class="info-value">${payrollEntry.regularHours.toFixed(2)}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">Overtime Hours:</span>
+                      <span class="info-value">${payrollEntry.overtimeHours.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="earnings-deductions">
+                  <div class="section">
+                    <div class="section-header">Earnings</div>
+                    <div class="section-content">
+                      <div class="line-item">
+                        <span>Regular Pay</span>
+                        <span>₱${payrollEntry.regularPay.toFixed(2)}</span>
+                      </div>
+                      <div class="line-item">
+                        <span>Overtime Pay (25%)</span>
+                        <span>₱${payrollEntry.overtimePay.toFixed(2)}</span>
+                      </div>
+                      <div class="line-item total">
+                        <span>Gross Pay</span>
+                        <span>₱${grossPay.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="section">
+                    <div class="section-header">Deductions</div>
+                    <div class="section-content">
+                      <div class="line-item">
+                        <span>Withholding Tax</span>
+                        <span>₱${withholdingTax.toFixed(2)}</span>
+                      </div>
+                      <div class="line-item">
+                        <span>SSS Contribution</span>
+                        <span>₱${sssContribution.toFixed(2)}</span>
+                      </div>
+                      <div class="line-item">
+                        <span>PhilHealth</span>
+                        <span>₱${philHealthContribution.toFixed(2)}</span>
+                      </div>
+                      <div class="line-item">
+                        <span>Pag-IBIG</span>
+                        <span>₱${pagIbigContribution.toFixed(2)}</span>
+                      </div>
+                      <div class="line-item total">
+                        <span>Total Deductions</span>
+                        <span>₱${payrollEntry.deductions.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="net-pay">
+                  <div class="net-pay-label">Net Pay</div>
+                  <div class="net-pay-amount">₱${payrollEntry.netPay.toFixed(2)}</div>
+                </div>
+
+                <div class="footer">
+                  <p>This is a computer-generated payroll slip.</p>
+                  <p>Generated on ${new Date().toLocaleDateString('en-PH')} at ${new Date().toLocaleTimeString('en-PH')}</p>
+                  <p>Jaylon Dental Clinic - Employee Management System</p>
+                </div>
+              </div>
+            </div>
+          </body>
+        </html>
+      `);
+      
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    };
+
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div className="relative top-8 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+          <div className="mt-3">
+            <div className="bg-white">
+              <div className="border-b border-gray-200 pb-4 mb-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Jaylon Dental Clinic</h2>
+                    <p className="text-gray-600">Payroll Slip</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">Pay Period</p>
+                    <p className="font-medium">
+                      {format(parseISO(payrollEntry.payPeriodStart), 'MMM dd')} - {format(parseISO(payrollEntry.payPeriodEnd), 'MMM dd, yyyy')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8 mb-6">
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-2">Employee Information</h3>
+                  <div className="text-sm space-y-1">
+                    <p><span className="font-medium">Name:</span> {currentEmployee.firstName} {currentEmployee.lastName}</p>
+                    <p><span className="font-medium">Position:</span> {currentEmployee.position}</p>
+                    <p><span className="font-medium">Department:</span> {currentEmployee.department}</p>
+                    <p><span className="font-medium">Employee ID:</span> {currentEmployee.id}</p>
+                    <p><span className="font-medium">Hourly Rate:</span> ₱{currentEmployee.hourlyRate.toFixed(2)}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-2">Pay Summary</h3>
+                  <div className="text-sm space-y-1">
+                    <p><span className="font-medium">Regular Hours:</span> {payrollEntry.regularHours.toFixed(2)}</p>
+                    <p><span className="font-medium">Overtime Hours:</span> {payrollEntry.overtimeHours.toFixed(2)}</p>
+                    <p><span className="font-medium">Gross Pay:</span> ₱{grossPay.toFixed(2)}</p>
+                    <p><span className="font-medium">Total Deductions:</span> ₱{payrollEntry.deductions.toFixed(2)}</p>
+                    <p><span className="font-medium text-blue-600">Net Pay:</span> ₱{payrollEntry.netPay.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8">
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-2">Earnings</h3>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Description</th>
+                          <th className="px-3 py-2 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t">
+                          <td className="px-3 py-2">Regular Pay</td>
+                          <td className="px-3 py-2 text-right">₱{payrollEntry.regularPay.toFixed(2)}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2">Overtime Pay (25%)</td>
+                          <td className="px-3 py-2 text-right">₱{payrollEntry.overtimePay.toFixed(2)}</td>
+                        </tr>
+                        <tr className="border-t bg-gray-50 font-medium">
+                          <td className="px-3 py-2">Gross Pay</td>
+                          <td className="px-3 py-2 text-right">₱{grossPay.toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-2">Deductions (Philippine Standards)</h3>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Description</th>
+                          <th className="px-3 py-2 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t">
+                          <td className="px-3 py-2">Withholding Tax</td>
+                          <td className="px-3 py-2 text-right">₱{withholdingTax.toFixed(2)}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2">SSS Contribution</td>
+                          <td className="px-3 py-2 text-right">₱{sssContribution.toFixed(2)}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2">PhilHealth</td>
+                          <td className="px-3 py-2 text-right">₱{philHealthContribution.toFixed(2)}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2">Pag-IBIG</td>
+                          <td className="px-3 py-2 text-right">₱{pagIbigContribution.toFixed(2)}</td>
+                        </tr>
+                        <tr className="border-t bg-gray-50 font-medium">
+                          <td className="px-3 py-2">Total Deductions</td>
+                          <td className="px-3 py-2 text-right">₱{payrollEntry.deductions.toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-medium text-gray-900">Net Pay</span>
+                  <span className="text-2xl font-bold text-blue-600">₱{payrollEntry.netPay.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <button
+                onClick={() => setShowPayrollSlip(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+              >
+                Close
+              </button>
+              <button
+                onClick={printPayrollSlip}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+              >
+                <Download className="h-4 w-4 mr-2 inline" />
+                Print/Download
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Profile editing components
   const EditProfileModal: React.FC = () => {
@@ -404,7 +844,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -465,7 +905,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
             {/* Quick Stats */}
@@ -507,7 +947,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-500">This Month</p>
                     <p className="text-lg font-semibold text-gray-900">
-                      ${employeePayroll.reduce((sum, entry) => sum + entry.netPay, 0).toLocaleString()}
+                      ₱{employeePayroll.reduce((sum, entry) => sum + entry.netPay, 0).toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -777,7 +1217,8 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Payroll History</h3>
+                <h3 className="text-lg font-medium text-gray-900">Payroll History & Slips</h3>
+                <p className="text-sm text-gray-600 mt-1">View and download your payroll slips with Philippine deductions</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -801,6 +1242,9 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -816,10 +1260,10 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
                           {entry.overtimeHours.toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ${(entry.regularPay + entry.overtimePay).toFixed(2)}
+                          ₱{(entry.regularPay + entry.overtimePay).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          ${entry.netPay.toFixed(2)}
+                          ₱{entry.netPay.toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -830,15 +1274,39 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
                             {entry.status}
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <button
+                            onClick={() => setShowPayrollSlip(entry)}
+                            className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            View Slip
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              
+              {employeePayroll.length === 0 && (
+                <div className="text-center py-12">
+                  <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No payroll records</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Your payroll records will appear here once processed.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
+
+       {/* Footer */}
+       <Footer />
+
+      
 
       {/* Modals */}
       {showQRScanner && (
@@ -858,6 +1326,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
 
       {showEditProfile && <EditProfileModal />}
       {showChangePassword && <ChangePasswordModal />}
+      {showPayrollSlip && <PayrollSlipModal payrollEntry={showPayrollSlip} />}
     </div>
   );
 };

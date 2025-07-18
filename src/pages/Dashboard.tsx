@@ -25,6 +25,7 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-react';
+import Footer from '../components/Footer';
 
 const Dashboard: React.FC = () => {
   const { state } = useAppContext();
@@ -192,7 +193,7 @@ const Dashboard: React.FC = () => {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" />
             <YAxis />
-            <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Amount']} />
+            <Tooltip formatter={(value) => [`₱${value.toLocaleString()}`, 'Amount']} />
             <Line type="monotone" dataKey="amount" stroke="#2563eb" strokeWidth={2} />
           </LineChart>
         </ResponsiveContainer>
@@ -228,7 +229,14 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
     </div>
+
+    
   );
+
+  
 };
+
+{/* Footer */}
+<Footer />
 
 export default Dashboard;

@@ -25,7 +25,7 @@ const Attendance: React.FC = () => {
 
   // Attendance time rules
   const STANDARD_START_TIME = '08:00'; // 8:00 AM
-  const GRACE_PERIOD_END = '08:15'; // 8:15 AM
+  const GRACE_PERIOD_END = '08:15'; // 8:15 AM 
   const STANDARD_HOURS = 8; // Standard work hours per day
 
   const getEmployeeName = (employeeId: string) => {

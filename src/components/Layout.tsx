@@ -12,6 +12,7 @@ import {
   Building2,
   LogOut,
 } from 'lucide-react';
+import Footer from './Footer';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -164,5 +165,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
     </div>
   );
 };
+
+{/* Footer */}
+<Footer />
 
 export default Layout;

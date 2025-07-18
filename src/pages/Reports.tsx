@@ -400,13 +400,13 @@ const Reports: React.FC = () => {
                       {employee.overtimeHours.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${employee.grossPay.toLocaleString()}
+                      ₱{employee.grossPay.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${employee.deductions.toLocaleString()}
+                      ₱{employee.deductions.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ${employee.netPay.toLocaleString()}
+                      ₱{employee.netPay.toLocaleString()}
                     </td>
                   </tr>
                 ))}
