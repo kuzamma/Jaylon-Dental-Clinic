@@ -126,13 +126,13 @@ const Payroll: React.FC = () => {
       let successCount = 0;
       let errorCount = 0;
 
-      setGenerationStatus(`Processing ₱{activeEmployees.length} employees...`);
+      setGenerationStatus(`Processing ₱ ${activeEmployees.length} employees...`);
 
       for (const employee of activeEmployees) {
         try {
           const calculation = calculatePayroll(employee.id, startDate, endDate);
           if (!calculation) {
-            console.warn(`No calculation data for employee ₱{employee.id}`);
+            console.warn(`No calculation data for employee ${employee.id}`);
             continue;
           }
 
@@ -143,7 +143,7 @@ const Payroll: React.FC = () => {
           );
 
           if (!existingPayroll) {
-            setGenerationStatus(`Processing ₱{employee.firstName} ₱{employee.lastName}...`);
+            setGenerationStatus(`Processing ${employee.firstName} ${employee.lastName}...`);
             
             const newPayrollEntry: Omit<PayrollEntry, 'id'> = {
               employeeId: employee.id,
@@ -161,10 +161,10 @@ const Payroll: React.FC = () => {
             await createPayroll(newPayrollEntry);
             successCount++;
           } else {
-            console.log(`Payroll already exists for ₱{employee.firstName} ₱{employee.lastName}`);
+            console.log(`Payroll already exists for ${employee.firstName} ${employee.lastName}`);
           }
         } catch (error) {
-          console.error(`Error processing payroll for employee ₱{employee.id}:`, error);
+          console.error(`Error processing payroll for employee ${employee.id}:`, error);
           errorCount++;
         }
       }
@@ -172,7 +172,7 @@ const Payroll: React.FC = () => {
       setGenerationStatus('Refreshing data...');
       await refreshData();
 
-      const message = `Payroll generation completed!\n\nSuccessfully processed: ₱{successCount} employees\nErrors: ₱{errorCount} employees\n\nPayroll entries have been created and are ready for review.`;
+      const message = `Payroll generation completed!\n\nSuccessfully processed: ${successCount} employees\nErrors: ${errorCount} employees\n\nPayroll entries have been created and are ready for review.`;
       alert(message);
       
     } catch (error) {
@@ -192,8 +192,8 @@ const Payroll: React.FC = () => {
       const payrollEntry = payroll.find(entry => entry.id === payrollId);
       if (payrollEntry) {
         const employee = employees.find(emp => emp.id === payrollEntry.employeeId);
-        const employeeName = employee ? `₱{employee.firstName} ₱{employee.lastName}` : 'Employee';
-        alert(`✅ ₱{employeeName}'s payroll status updated to "₱{status}"`);
+        const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : 'Employee';
+        alert(`✅ ${employeeName}'s payroll status updated to "${status}"`);
       }
     } catch (error) {
       console.error('Error updating payroll status:', error);
@@ -203,7 +203,7 @@ const Payroll: React.FC = () => {
 
   const getEmployeeName = (employeeId: string) => {
     const employee = employees.find(emp => emp.id === employeeId);
-    return employee ? `₱{employee.firstName} ₱{employee.lastName}` : 'Unknown';
+    return employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown';
   };
 
   const getStatusIcon = (status: string) => {
@@ -319,7 +319,7 @@ const Payroll: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        <tr className="border-t">
+                      <tr className="border-t">
                           <td className="px-3 py-2">Philippine withholding tax</td>
                           <td className="px-3 py-2 text-right">₱{calculation?.taxBreakdown.withholdingTax.toFixed(2) || '0.00'}</td>
                         </tr>
@@ -390,7 +390,7 @@ const Payroll: React.FC = () => {
             disabled={loading}
             className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ₱{loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
           <button
@@ -559,18 +559,18 @@ const Payroll: React.FC = () => {
                         {entry.overtimeHours.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ₱{(entry.regularPay + entry.overtimePay).toFixed(2)}
+                      ₱{(entry.regularPay + entry.overtimePay).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ₱{entry.deductions.toFixed(2)}
+                      ₱{entry.deductions.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ₱{entry.netPay.toFixed(2)}
+                      ₱{entry.netPay.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           {getStatusIcon(entry.status)}
-                          <span className={`ml-2 text-sm font-medium capitalize ₱{
+                          <span className={`ml-2 text-sm font-medium capitalize ${
                             entry.status === 'paid' ? 'text-green-800' :
                             entry.status === 'processed' ? 'text-yellow-800' :
                             'text-red-800'
