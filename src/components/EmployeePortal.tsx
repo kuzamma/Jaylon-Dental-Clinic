@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { format, isToday, parseISO } from 'date-fns';
+import logo from '../assets/log.png';
 import { 
   User, 
   Calendar, 
@@ -850,7 +851,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ onLogout }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <Building2 className="h-8 w-8 text-blue-600 mr-3" />
+              <img src={logo} alt="Jaylon Dental Logo" className="h-8 w-8" />
               <div>
                 <h1 className="text-xl font-semibold text-gray-900">Employee Portal</h1>
                 <p className="text-sm text-gray-600">Welcome, {currentEmployee.firstName}!</p>

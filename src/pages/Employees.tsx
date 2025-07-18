@@ -543,6 +543,7 @@ const Employees: React.FC = () => {
         </div>
       </div>
     );
+
   };
 
   if (loading && employees.length === 0) {
@@ -705,6 +706,7 @@ const Employees: React.FC = () => {
         />
       )}
       {showDeleteModal && <DeleteConfirmationModal />}
+     
     </div>
   );
 };

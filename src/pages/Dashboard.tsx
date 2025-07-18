@@ -25,7 +25,6 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-react';
-import Footer from '../components/Footer';
 
 const Dashboard: React.FC = () => {
   const { state } = useAppContext();
@@ -251,7 +250,6 @@ const Dashboard: React.FC = () => {
   
 };
 
-{/* Footer */}
-<Footer />
+
 
 export default Dashboard;

@@ -638,6 +638,8 @@ const Reports: React.FC = () => {
       {reportType === 'attendance' && renderAttendanceReport()}
       {reportType === 'payroll' && renderPayrollReport()}
       {reportType === 'schedule' && renderScheduleReport()}
+
+      
     </div>
   );
 };

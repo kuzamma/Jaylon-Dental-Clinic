@@ -616,10 +616,16 @@ const Payroll: React.FC = () => {
           )}
         </div>
       </div>
+      
 
       {showPayStub && <PayStubModal payrollEntry={showPayStub} />}
+
+      
     </div>
+    
   );
+  
 };
+
 
 export default Payroll;
