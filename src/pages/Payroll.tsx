@@ -12,7 +12,6 @@ import {
   Clock,
   XCircle,
   Loader,
-  AlertCircle,
   RefreshCw
 } from 'lucide-react';
 

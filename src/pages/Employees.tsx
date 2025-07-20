@@ -353,8 +353,8 @@ const Employees: React.FC = () => {
                 <input
                   type="tel"
                   name="phone"
-                  value={formData.phone || ''}
                   onChange={handleChange}
+                  value={formData.phone || ''}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
@@ -569,7 +569,7 @@ const Employees: React.FC = () => {
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Manage your clinic's employee records with QR code generation and secure deletion options
+            Manage your clinic's employee records with QR code generation
           </p>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">

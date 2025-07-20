@@ -641,7 +641,7 @@ const Scheduling: React.FC = () => {
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-bold text-gray-900">Smart Employee Scheduling</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Intelligent scheduling with automated workload balancing and optimization
+            Scheduling with automated workload balancing
           </p>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none space-x-3">

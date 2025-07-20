@@ -126,7 +126,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
             <div className="flex items-start">
               <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
               <div className="text-sm">
-                <p className="font-medium text-green-800">Demo Accounts Available</p>
+                <p className="font-medium text-green-800">Test Accounts  </p>
                 <div className="mt-2 space-y-2">
                   <div>
                     <button

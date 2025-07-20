@@ -44,7 +44,7 @@ const Attendance: React.FC = () => {
     if (clockIn <= gracePeriodEnd) {
       return 'present'; // On time or within grace period
     } else {
-      return 'late'; // After grace period
+      return 'late'; // After grace periodintegration
     }
   };
 
@@ -245,7 +245,7 @@ const Attendance: React.FC = () => {
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-bold text-gray-900">QR Code Attendance System</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Advanced attendance tracking with QR code scanning and real-time camera integration
+            Advanced attendance tracking with QR code scanning
           </p>
           <div className="mt-2 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
             <p><strong>Attendance Rules:</strong></p>
