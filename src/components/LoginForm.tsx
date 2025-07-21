@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Building2, User, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import { Building2, User, Lock, Eye, EyeOff, AlertCircle, CheckCircle, SeparatorVertical as Separator } from 'lucide-react';
 import { authService } from '../lib/auth';
+import GoogleLoginButton from './GoogleLoginButton';
 
 interface LoginFormProps {
   onLogin: (userType: 'admin' | 'employee', credentials?: any) => void;
@@ -15,6 +16,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +92,16 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
     setError(null);
   };
 
+  const handleGoogleSuccess = (userData: any) => {
+    console.log('Google login successful:', userData);
+    // The auth state change listener will handle the login
+  };
+
+  const handleGoogleError = (error: string) => {
+    console.error('Google login error:', error);
+    setOauthError(error);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -121,12 +133,25 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
             </div>
           )}
 
+          {/* OAuth Error Message */}
+          {oauthError && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-red-800">Google Login Error</p>
+                  <p className="text-red-700 mt-1">{oauthError}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Demo Accounts */}
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-start">
               <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
               <div className="text-sm">
-                <p className="font-medium text-green-800">Test Accounts  </p>
+                <p className="font-medium text-green-800">Demo Accounts Available</p>
                 <div className="mt-2 space-y-2">
                   <div>
                     <button
@@ -148,6 +173,25 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Google Login Section */}
+          <div className="mb-6">
+            <GoogleLoginButton
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              disabled={isLoading}
+            />
+          </div>
+
+          {/* Divider */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue with email</span>
             </div>
           </div>
 
@@ -272,6 +316,14 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
               </button>
             </div>
           </form>
+
+          {/* OAuth Info */}
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-500">
+              Google sign-in creates an employee account automatically. 
+              Contact your administrator for role changes.
+            </p>
+          </div>
         </div>
       </div>
     </div>

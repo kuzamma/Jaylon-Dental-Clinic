@@ -1,5 +1,6 @@
 // Simple authentication service without Supabase Auth
 import { supabase } from './supabase';
+import { supabaseAuthService, SupabaseUser } from './supabaseAuth';
 
 export interface User {
   id: string;
@@ -7,6 +8,7 @@ export interface User {
   email: string;
   role: 'employee' | 'admin' | 'owner';
   is_active: boolean;
+  authProvider?: 'local' | 'google';
 }
 
 export interface AuthState {
@@ -18,6 +20,66 @@ export interface AuthState {
 class SimpleAuthService {
   private currentUser: User | null = null;
   private listeners: ((user: User | null) => void)[] = [];
+  private supabaseAuthUnsubscribe: (() => void) | null = null;
+
+  constructor() {
+    // Set up Supabase Auth listener for OAuth
+    this.setupSupabaseAuthListener();
+  }
+
+  // Set up Supabase Auth state listener for OAuth users
+  private setupSupabaseAuthListener() {
+    this.supabaseAuthUnsubscribe = supabaseAuthService.onAuthStateChange(async (session) => {
+      if (session?.user) {
+        try {
+          console.log('🔐 Supabase Auth session detected, syncing user...');
+          
+          // Sync OAuth user with our database
+          const { user: syncedUser, isNewUser } = await supabaseAuthService.syncUserWithDatabase(session.user);
+          
+          // Check if user has employee record
+          const employeeRecord = await supabaseAuthService.checkEmployeeRecord(session.user.email);
+          
+          // Set current user
+          this.currentUser = {
+            ...syncedUser,
+            authProvider: 'google'
+          };
+          
+          // Store in localStorage for persistence
+          localStorage.setItem('auth_user', JSON.stringify(this.currentUser));
+          localStorage.setItem('auth_provider', 'google');
+          localStorage.setItem('supabase_session', JSON.stringify(session));
+          
+          console.log('✅ OAuth user synced successfully:', this.currentUser);
+          
+          if (isNewUser) {
+            console.log('🆕 New OAuth user created');
+          }
+          
+          if (!employeeRecord && syncedUser.role === 'employee') {
+            console.log('⚠️ OAuth user has no employee record');
+          }
+          
+          this.notifyListeners();
+        } catch (error) {
+          console.error('❌ Error syncing OAuth user:', error);
+          // Don't set user if sync fails
+        }
+      } else {
+        // OAuth session ended
+        const authProvider = localStorage.getItem('auth_provider');
+        if (authProvider === 'google') {
+          console.log('🔐 Google OAuth session ended');
+          this.currentUser = null;
+          localStorage.removeItem('auth_user');
+          localStorage.removeItem('auth_provider');
+          localStorage.removeItem('supabase_session');
+          this.notifyListeners();
+        }
+      }
+    });
+  }
 
   // Subscribe to auth state changes
   onAuthStateChange(callback: (user: User | null) => void) {
@@ -83,8 +145,18 @@ class SimpleAuthService {
   // Sign out
   async signOut(): Promise<{ error: string | null }> {
     try {
+      const authProvider = localStorage.getItem('auth_provider');
+      
+      // Sign out from appropriate provider
+      if (authProvider === 'google') {
+        console.log('🔄 Signing out from Google OAuth...');
+        await supabaseAuthService.signOut();
+      }
+      
       this.currentUser = null;
       localStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_provider');
+      localStorage.removeItem('supabase_session');
       this.notifyListeners();
       return { error: null };
     } catch (error: any) {
@@ -100,16 +172,50 @@ class SimpleAuthService {
 
     // Try to restore from localStorage
     const stored = localStorage.getItem('auth_user');
+    const authProvider = localStorage.getItem('auth_provider');
+    
     if (stored) {
       try {
         this.currentUser = JSON.parse(stored);
+        
+        // If it's a Google OAuth user, verify the session is still valid
+        if (authProvider === 'google') {
+          this.verifyOAuthSession();
+        }
+        
         return this.currentUser;
       } catch {
         localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_provider');
+        localStorage.removeItem('supabase_session');
       }
     }
 
     return null;
+  }
+
+  // Verify OAuth session is still valid
+  private async verifyOAuthSession() {
+    try {
+      const session = await supabaseAuthService.getCurrentSession();
+      if (!session) {
+        // Session expired, clear local data
+        this.currentUser = null;
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_provider');
+        localStorage.removeItem('supabase_session');
+        this.notifyListeners();
+      }
+    } catch (error) {
+      console.error('Error verifying OAuth session:', error);
+    }
+  }
+
+  // Clean up listeners
+  destroy() {
+    if (this.supabaseAuthUnsubscribe) {
+      this.supabaseAuthUnsubscribe();
+    }
   }
 
   // Create user with password

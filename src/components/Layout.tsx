@@ -9,13 +9,13 @@ import {
   Clock,
   DollarSign,
   FileText,
+  Building2,
   LogOut,
 } from 'lucide-react';
 import Footer from './Footer';
-import logo from '../assets/log.png';
+
 interface LayoutProps {
   children: React.ReactNode;
-
   onLogout: () => void;
 }
 
@@ -25,8 +25,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Scheduling', href: '/scheduling', icon: Calendar },
     { name: 'Employees', href: '/employees', icon: Users },
+    { name: 'Scheduling', href: '/scheduling', icon: Calendar },
     { name: 'Attendance', href: '/attendance', icon: Clock },
     { name: 'Payroll', href: '/payroll', icon: DollarSign },
     { name: 'Reports', href: '/reports', icon: FileText },
@@ -40,7 +40,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
           <div className="flex h-16 shrink-0 items-center justify-between px-4 border-b border-gray-200">
             <div className="flex items-center">
-              <img src={logo} alt="Jaylon Dental Logo" className="h-8 w-8" />
+              <Building2 className="h-8 w-8 text-blue-600" />
               <span className="ml-2 text-lg font-semibold text-gray-900">Jaylon Dental</span>
             </div>
             <button
@@ -94,7 +94,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200 shadow-sm">
           <div className="flex h-16 shrink-0 items-center px-4 border-b border-gray-200">
-            <img src={logo} alt="Jaylon Dental Logo" className="h-8 w-8" />
+            <Building2 className="h-8 w-8 text-blue-600" />
             <span className="ml-2 text-lg font-semibold text-gray-900">Jaylon Dental</span>
           </div>
           <nav className="flex flex-1 flex-col px-4 py-4">
@@ -154,23 +154,28 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
               <div className="text-sm font-medium text-gray-700">
                 Administrator Dashboard
               </div>
+              <div className="text-xs text-gray-500">
+                {/* Show auth provider indicator */}
+                {localStorage.getItem('auth_provider') === 'google' && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                    Google Account
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        <main className="flex-1 overflow-y-auto">
-          {children}
-          
-        </main>
-        {/* Footer */}
-<Footer />
+        {/* Main content area with footer */}
+        <div className="flex flex-1 flex-col">
+          <main className="flex-1 overflow-y-auto">
+            {children}
+          </main>
+          <Footer />
+        </div>
       </div>
-      
     </div>
-    
   );
 };
-
-
 
 export default Layout;

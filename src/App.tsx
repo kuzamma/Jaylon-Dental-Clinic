@@ -43,7 +43,11 @@ function App() {
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      // Clean up auth service
+      authService.destroy?.();
+    };
   }, []);
 
   const handleLogin = (userType: UserType, credentials?: any) => {
