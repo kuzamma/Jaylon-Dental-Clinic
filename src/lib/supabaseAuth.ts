@@ -61,7 +61,7 @@ class SupabaseAuthService {
       const { data, error } = await supabaseAuth.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: 'https://jaylon-dental-clinic.netlify.app',
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
