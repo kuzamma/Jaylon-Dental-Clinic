@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Building2, User, Lock, Eye, EyeOff, AlertCircle, CheckCircle, SeparatorVertical as Separator } from 'lucide-react';
+import { Building2, User, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { authService } from '../lib/auth';
 import GoogleLoginButton from './GoogleLoginButton';
+import { supabase } from '../lib/supabase'; // adjust path if needed
 
 interface LoginFormProps {
   onLogin: (userType: 'admin' | 'employee', credentials?: any) => void;
@@ -92,9 +93,54 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
     setError(null);
   };
 
-  const handleGoogleSuccess = (userData: any) => {
-    console.log('Google login successful:', userData);
-    // The auth state change listener will handle the login
+  // FIXED: Async Google login handler that creates employee record if needed
+  const handleGoogleSuccess = async (userData: any) => {
+    setOauthError(null);
+    try {
+      const { user } = userData;
+      if (!user) {
+        setOauthError('No user returned from Google login.');
+        return;
+      }
+
+      // Check if employee record exists
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('email_address', user.email)
+        .single();
+
+      if (!employee) {
+        // Parse names
+        const nameParts = (user.user_metadata?.name || '').split(' ');
+        const fname = nameParts[0] || 'First';
+        const lname = nameParts.slice(1).join(' ') || 'Last';
+
+        // Insert with all required fields
+        const { error: insertError } = await supabase
+          .from('employees')
+          .insert([{
+            user_id: user.id,
+            fname,
+            lname,
+            role: 'employee', // REQUIRED, set default or map from Google if available
+            email_address: user.email,
+            status: 'Active',
+            // hire_date will default to CURRENT_DATE
+            // Add other fields as needed, or let them default
+          }]);
+
+        if (insertError) {
+          setOauthError('Failed to create employee record: ' + insertError.message);
+          return;
+        }
+      }
+
+      // Continue with login flow
+      onLogin('employee', { user, role: 'employee' });
+    } catch (err: any) {
+      setOauthError('Google login failed: ' + (err.message || err.toString()));
+    }
   };
 
   const handleGoogleError = (error: string) => {
@@ -320,14 +366,15 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
           {/* OAuth Info */}
           <div className="mt-6 text-center">
             <p className="text-xs text-gray-500">
-              Google sign-in creates an employee account automatically. 
-              Contact your administrator for role changes.
+              Google sign-in creates a user account automatically. 
+              Contact your administrator to set up your employee profile.
             </p>
           </div>
         </div>
       </div>
     </div>
   );
+
 };
 
 export default LoginForm;

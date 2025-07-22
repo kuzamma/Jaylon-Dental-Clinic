@@ -342,7 +342,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       if (!employeeData || employeeData.length === 0) {
-        console.error('❌ No employee record found for user_id:', userData.id);
+        console.log('⚠️ No employee record found, this might be a new OAuth user');
+        
+        // For OAuth users, try to create employee record automatically
+        const authProvider = localStorage.getItem('auth_provider');
+        if (authProvider === 'google') {
+          console.log('🔄 Attempting to create employee record for Google OAuth user...');
+          
+          try {
+            // Get current Supabase user for name info
+            const { supabaseAuthService } = await import('../lib/supabaseAuth');
+            const currentSupabaseUser = await supabaseAuthService.getCurrentUser();
+            
+            if (currentSupabaseUser) {
+              const userName = currentSupabaseUser.user_metadata?.name || currentSupabaseUser.email.split('@')[0];
+              
+              console.log('🔄 Creating employee record with full data...');
+              
+              // Create employee record using the supabaseAuth service
+              const newEmployee = await supabaseAuthService.createEmployeeForOAuthUser(
+                userEmail, 
+                userName, 
+                userData.id
+              );
+              
+              console.log('✅ Employee record created successfully for OAuth user');
+              
+              // Convert and return the new employee
+              const employees = [convertDbEmployeeToApp(newEmployee)];
+              dispatch({ type: 'SET_EMPLOYEES', payload: employees });
+              return employees;
+            } else {
+              throw new Error('Could not get current OAuth user information');
+            }
+          } catch (createError) {
+            console.error('❌ Error creating employee record:', createError);
+            throw new Error(`Failed to create employee profile: ${createError.message || createError}`);
+          }
+        }
+        
         throw new Error('No employee record found for this user');
       }
 

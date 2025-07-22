@@ -37,9 +37,6 @@ class SimpleAuthService {
           // Sync OAuth user with our database
           const { user: syncedUser, isNewUser } = await supabaseAuthService.syncUserWithDatabase(session.user);
           
-          // Check if user has employee record
-          const employeeRecord = await supabaseAuthService.checkEmployeeRecord(session.user.email);
-          
           // Set current user
           this.currentUser = {
             ...syncedUser,
@@ -51,19 +48,15 @@ class SimpleAuthService {
           localStorage.setItem('auth_provider', 'google');
           localStorage.setItem('supabase_session', JSON.stringify(session));
           
-          console.log('✅ OAuth user synced successfully:', this.currentUser);
+          console.log('✅ OAuth user synced successfully with employee record:', this.currentUser);
           
           if (isNewUser) {
             console.log('🆕 New OAuth user created');
           }
           
-          if (!employeeRecord && syncedUser.role === 'employee') {
-            console.log('⚠️ OAuth user has no employee record');
-          }
-          
           this.notifyListeners();
         } catch (error) {
-          console.error('❌ Error syncing OAuth user:', error);
+          console.error('❌ Error syncing OAuth user with employee record:', error);
           // Don't set user if sync fails
         }
       } else {

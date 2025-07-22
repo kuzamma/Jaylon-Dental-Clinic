@@ -141,8 +141,11 @@ class SupabaseAuthService {
     try {
       console.log('🔄 Syncing OAuth user with database:', supabaseUser.email);
       
+      // Import supabase client for database operations
+      const { supabase } = await import('./supabase');
+      
       // Check if user already exists in our system
-      const { data: existingUser, error: fetchError } = await supabaseAuth
+      const { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('*')
         .eq('email', supabaseUser.email)
@@ -156,7 +159,7 @@ class SupabaseAuthService {
         // User exists, update their info
         console.log('✅ User exists, updating info...');
         
-        const { data: updatedUser, error: updateError } = await supabaseAuth
+        const { data: updatedUser, error: updateError } = await supabase
           .from('users')
           .update({
             username: supabaseUser.user_metadata?.name || supabaseUser.email.split('@')[0],
@@ -168,6 +171,19 @@ class SupabaseAuthService {
           .single();
 
         if (updateError) throw updateError;
+        
+        // Check if employee record exists for this user
+        const { data: existingEmployee, error: employeeCheckError } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('user_id', updatedUser.id)
+          .single();
+
+        if (employeeCheckError && employeeCheckError.code === 'PGRST116') {
+          // No employee record exists, create one
+          console.log('🔄 Creating missing employee record for existing OAuth user...');
+          await this.createEmployeeForOAuthUser(supabaseUser.email, supabaseUser.user_metadata?.name || 'OAuth User', updatedUser.id);
+        }
         
         return {
           user: {
@@ -186,7 +202,7 @@ class SupabaseAuthService {
         const newUserId = crypto.randomUUID();
         const username = supabaseUser.user_metadata?.name || supabaseUser.email.split('@')[0];
         
-        const { data: newUser, error: createError } = await supabaseAuth
+        const { data: newUser, error: createError } = await supabase
           .from('users')
           .insert({
             id: newUserId,
@@ -200,6 +216,10 @@ class SupabaseAuthService {
           .single();
 
         if (createError) throw createError;
+
+        // Create employee record for new OAuth user
+        console.log('🔄 Creating employee record for new OAuth user...');
+        await this.createEmployeeForOAuthUser(supabaseUser.email, supabaseUser.user_metadata?.name || 'OAuth User', newUser.id);
 
         return {
           user: {
@@ -218,10 +238,59 @@ class SupabaseAuthService {
     }
   }
 
+  // Create employee record for OAuth user
+  async createEmployeeForOAuthUser(userEmail: string, userName: string, userId: string) {
+    try {
+      console.log('🔄 Creating employee record for OAuth user:', userEmail);
+      
+      // Import supabase client
+      const { supabase } = await import('./supabase');
+      
+      // Parse name
+      const nameParts = userName.split(' ');
+      const firstName = nameParts[0] || 'User';
+      const lastName = nameParts.slice(1).join(' ') || 'OAuth';
+
+      // Create employee record
+      const { data: employee, error: employeeError } = await supabase
+        .from('employees')
+        .insert({
+          user_id: userId,
+          fname: firstName,
+          lname: lastName,
+          mname: null, // Middle name - optional
+          date_of_birth: null, // Date of birth - optional
+          role: 'Employee', // Required field
+          email_address: userEmail,
+          hire_date: new Date().toISOString().split('T')[0], // Required field - today's date
+          phone_number: '', // Optional but provide empty string
+          status: 'Active', // Required field with default
+          base_salary: 0.00, // Required field with default
+          payment_type: 'hourly', // Required field with default
+          hourly_rate: 15.00, // Required field with default
+          department: 'General', // Optional but provide value
+          position: 'Employee',
+        })
+        .select()
+        .single();
+
+      if (employeeError) throw employeeError;
+
+      console.log('✅ Employee record created for OAuth user');
+      return employee;
+    } catch (error: any) {
+      console.error('💥 Error creating employee record:', error);
+      throw error;
+    }
+  }
+
   // Check if user has employee record
   async checkEmployeeRecord(userEmail: string) {
     try {
-      const { data: employee, error } = await supabaseAuth
+      // Import supabase client
+      const { supabase } = await import('./supabase');
+      
+      const { data: employee, error } = await supabase
         .from('employees')
         .select('*')
         .eq('email_address', userEmail)
@@ -238,6 +307,7 @@ class SupabaseAuthService {
       return null;
     }
   }
+
 }
 
-export const supabaseAuthService = new SupabaseAuthService();
+export const supabaseAuthService = new SupabaseAuthService(); 
