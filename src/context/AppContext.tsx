@@ -13,6 +13,8 @@ export interface Employee {
   hourlyRate: number;
   hireDate: string;
   isActive: boolean;
+  primaryBranchId?: string;
+  primaryBranchName?: string;
   qrCode?: string;
 }
 
@@ -23,6 +25,8 @@ export interface Schedule {
   startTime: string;
   endTime: string;
   position: string;
+  branchId?: string;
+  branchName?: string;
   status: 'scheduled' | 'completed' | 'missed';
 }
 
@@ -54,11 +58,27 @@ export interface PayrollEntry {
   status: 'pending' | 'processed' | 'paid';
 }
 
+export interface Branch {
+  id: string;
+  name: string;
+  code: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  phoneNumber?: string;
+  email?: string;
+  managerName?: string;
+  isActive: boolean;
+  operatingHours?: any;
+}
+
 interface AppState {
   employees: Employee[];
   schedules: Schedule[];
   attendance: AttendanceRecord[];
   payroll: PayrollEntry[];
+  branches: Branch[];
   loading: boolean;
   error: string | null;
 }
@@ -79,13 +99,18 @@ type AppAction =
   | { type: 'UPDATE_ATTENDANCE'; payload: AttendanceRecord }
   | { type: 'SET_PAYROLL'; payload: PayrollEntry[] }
   | { type: 'ADD_PAYROLL'; payload: PayrollEntry }
-  | { type: 'UPDATE_PAYROLL'; payload: PayrollEntry };
+  | { type: 'UPDATE_PAYROLL'; payload: PayrollEntry }
+  | { type: 'SET_BRANCHES'; payload: Branch[] }
+  | { type: 'ADD_BRANCH'; payload: Branch }
+  | { type: 'UPDATE_BRANCH'; payload: Branch }
+  | { type: 'DELETE_BRANCH'; payload: string };
 
 const initialState: AppState = {
   employees: [],
   schedules: [],
   attendance: [],
   payroll: [],
+  branches: [],
   loading: false,
   error: null,
 };
@@ -150,6 +175,22 @@ function appReducer(state: AppState, action: AppAction): AppState {
           entry.id === action.payload.id ? action.payload : entry
         ),
       };
+    case 'SET_BRANCHES':
+      return { ...state, branches: action.payload };
+    case 'ADD_BRANCH':
+      return { ...state, branches: [...state.branches, action.payload] };
+    case 'UPDATE_BRANCH':
+      return {
+        ...state,
+        branches: state.branches.map(branch =>
+          branch.id === action.payload.id ? action.payload : branch
+        ),
+      };
+    case 'DELETE_BRANCH':
+      return {
+        ...state,
+        branches: state.branches.filter(branch => branch.id !== action.payload),
+      };
     default:
       return state;
   }
@@ -172,6 +213,10 @@ const AppContext = createContext<{
   refreshData: () => Promise<void>;
   loadEmployeeData: (userEmail: string) => Promise<Employee[]>;
   previewUserDeletion: (userId: string) => Promise<any[]>;
+  // Branch management
+  createBranch: (branch: Omit<Branch, 'id'>) => Promise<void>;
+  updateBranch: (id: string, updates: Partial<Branch>) => Promise<void>;
+  deleteBranch: (id: string) => Promise<void>;
   // Employee profile management
   updateEmployeeProfile: (id: string, updates: Partial<Pick<Employee, 'firstName' | 'lastName' | 'email' | 'phone'>>) => Promise<void>;
   updateEmployeePassword: (id: string, currentPassword: string, newPassword: string) => Promise<void>;
@@ -189,6 +234,8 @@ const convertDbEmployeeToApp = (dbEmployee: any): Employee => ({
   hourlyRate: dbEmployee.hourly_rate || 0,
   hireDate: dbEmployee.hire_date,
   isActive: dbEmployee.status === 'Active',
+  primaryBranchId: dbEmployee.primary_branch_id?.toString(),
+  primaryBranchName: dbEmployee.branch_name,
 });
 
 // Helper function to convert app employee to database format
@@ -205,6 +252,38 @@ const convertAppEmployeeToDb = (appEmployee: Omit<Employee, 'id'>) => ({
   status: appEmployee.isActive ? 'Active' : 'Inactive',
   payment_type: 'hourly',
   base_salary: 0,
+  primary_branch_id: appEmployee.primaryBranchId ? parseInt(appEmployee.primaryBranchId) : null,
+});
+
+// Helper function to convert database branch to app branch
+const convertDbBranchToApp = (dbBranch: any): Branch => ({
+  id: dbBranch.branch_id.toString(),
+  name: dbBranch.branch_name,
+  code: dbBranch.branch_code,
+  address: dbBranch.address,
+  city: dbBranch.city,
+  state: dbBranch.state,
+  zipCode: dbBranch.zip_code,
+  phoneNumber: dbBranch.phone_number,
+  email: dbBranch.email,
+  managerName: dbBranch.manager_name,
+  isActive: dbBranch.is_active,
+  operatingHours: dbBranch.operating_hours,
+});
+
+// Helper function to convert app branch to database format
+const convertAppBranchToDb = (appBranch: Omit<Branch, 'id'>) => ({
+  branch_name: appBranch.name,
+  branch_code: appBranch.code,
+  address: appBranch.address,
+  city: appBranch.city,
+  state: appBranch.state,
+  zip_code: appBranch.zipCode,
+  phone_number: appBranch.phoneNumber,
+  email: appBranch.email,
+  manager_name: appBranch.managerName,
+  is_active: appBranch.isActive,
+  operating_hours: appBranch.operatingHours,
 });
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -223,7 +302,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Load employees
       const { data: employeesData, error: employeesError } = await supabase
         .from('employees')
-        .select('*')
+        .select(`
+          *,
+          branches!employees_primary_branch_id_fkey (
+            branch_name
+          )
+        `)
         .eq('status', 'Active')
         .order('fname', { ascending: true });
 
@@ -232,10 +316,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const employees = employeesData?.map(convertDbEmployeeToApp) || [];
       dispatch({ type: 'SET_EMPLOYEES', payload: employees });
 
+      // Load branches
+      const { data: branchesData, error: branchesError } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('is_active', true)
+        .order('branch_name', { ascending: true });
+
+      if (branchesError) throw branchesError;
+
+      const branches = branchesData?.map(convertDbBranchToApp) || [];
+      dispatch({ type: 'SET_BRANCHES', payload: branches });
+
       // Load schedules
       const { data: schedulesData, error: schedulesError } = await supabase
         .from('schedules')
-        .select('*')
+        .select(`
+          *,
+          branches (
+            branch_name
+          )
+        `)
         .order('work_date', { ascending: false });
 
       if (schedulesError) throw schedulesError;
@@ -247,6 +348,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         startTime: schedule.start_time,
         endTime: schedule.end_time,
         position: schedule.shift_time || 'Day Shift',
+        branchId: schedule.branch_id?.toString(),
+        branchName: schedule.branches?.branch_name,
         status: schedule.status,
       })) || [];
       dispatch({ type: 'SET_SCHEDULES', payload: schedules });
@@ -377,7 +480,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           } catch (createError) {
             console.error('❌ Error creating employee record:', createError);
-            throw new Error(`Failed to create employee profile: ${createError.message || createError}`);
+            throw new Error(
+              `Failed to create employee profile: ${
+                typeof createError === 'object' && createError !== null && 'message' in createError
+                  ? (createError as { message?: string }).message
+                  : String(createError)
+              }`
+            );
           }
         }
         
@@ -566,7 +675,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Show detailed deletion summary
         const deletedCounts = result.deleted_records;
         const summary = Object.entries(deletedCounts)
-          .filter(([_, count]) => count > 0)
+          .filter(([_, count]) => typeof count === 'number' && count > 0)
           .map(([table, count]) => `${table}: ${count}`)
           .join(', ');
         
@@ -707,6 +816,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .from('schedules')
         .insert({
           employee_id: parseInt(schedule.employeeId),
+          branch_id: schedule.branchId ? parseInt(schedule.branchId) : null,
           work_date: schedule.date,
           start_time: schedule.startTime,
           end_time: schedule.endTime,
@@ -721,6 +831,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const newSchedule: Schedule = {
         id: data.schedule_id.toString(),
         employeeId: data.employee_id.toString(),
+        branchId: data.branch_id?.toString(),
         date: data.work_date,
         startTime: data.start_time,
         endTime: data.end_time,
@@ -744,6 +855,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       const dbUpdates: any = {};
       if (updates.employeeId) dbUpdates.employee_id = parseInt(updates.employeeId);
+      if (updates.branchId) dbUpdates.branch_id = parseInt(updates.branchId);
       if (updates.date) dbUpdates.work_date = updates.date;
       if (updates.startTime) dbUpdates.start_time = updates.startTime;
       if (updates.endTime) dbUpdates.end_time = updates.endTime;
@@ -762,6 +874,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const updatedSchedule: Schedule = {
         id: data.schedule_id.toString(),
         employeeId: data.employee_id.toString(),
+        branchId: data.branch_id?.toString(),
         date: data.work_date,
         startTime: data.start_time,
         endTime: data.end_time,
@@ -1051,6 +1164,88 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Branch CRUD operations
+  const createBranch = async (branch: Omit<Branch, 'id'>) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
+      const { data, error } = await supabase
+        .from('branches')
+        .insert(convertAppBranchToDb(branch))
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newBranch = convertDbBranchToApp(data);
+      dispatch({ type: 'ADD_BRANCH', payload: newBranch });
+    } catch (error: any) {
+      console.error('Error creating branch:', error);
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const updateBranch = async (id: string, updates: Partial<Branch>) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
+      const dbUpdates: any = {};
+      if (updates.name) dbUpdates.branch_name = updates.name;
+      if (updates.code) dbUpdates.branch_code = updates.code;
+      if (updates.address) dbUpdates.address = updates.address;
+      if (updates.city) dbUpdates.city = updates.city;
+      if (updates.state) dbUpdates.state = updates.state;
+      if (updates.zipCode) dbUpdates.zip_code = updates.zipCode;
+      if (updates.phoneNumber) dbUpdates.phone_number = updates.phoneNumber;
+      if (updates.email) dbUpdates.email = updates.email;
+      if (updates.managerName) dbUpdates.manager_name = updates.managerName;
+      if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+      if (updates.operatingHours) dbUpdates.operating_hours = updates.operatingHours;
+
+      const { data, error } = await supabase
+        .from('branches')
+        .update(dbUpdates)
+        .eq('branch_id', parseInt(id))
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedBranch = convertDbBranchToApp(data);
+      dispatch({ type: 'UPDATE_BRANCH', payload: updatedBranch });
+    } catch (error: any) {
+      console.error('Error updating branch:', error);
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const deleteBranch = async (id: string) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
+      const { error } = await supabase
+        .from('branches')
+        .delete()
+        .eq('branch_id', parseInt(id));
+
+      if (error) throw error;
+
+      dispatch({ type: 'DELETE_BRANCH', payload: id });
+    } catch (error: any) {
+      console.error('Error deleting branch:', error);
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       state,
@@ -1065,6 +1260,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateAttendance,
       createPayroll,
       updatePayroll,
+      createBranch,
+      updateBranch,
+      deleteBranch,
       refreshData,
       loadEmployeeData,
       previewUserDeletion,

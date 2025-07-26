@@ -172,7 +172,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onClose, isOpen }
   useEffect(() => {
     if (!isScanning || !isOpen) return;
 
-    const interval = setInterval(detectQRCode, 100); // Check every 100ms
+    const interval = setInterval(detectQRCode, 300); // Check every 100ms
     return () => clearInterval(interval);
   }, [isScanning, isOpen, detectQRCode]);
 

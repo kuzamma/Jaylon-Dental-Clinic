@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAppContext, Schedule, Employee } from '../context/AppContext';
+import { useAppContext, Schedule, Employee, Branch } from '../context/AppContext';
 import { format, addDays, startOfWeek, isSameDay, parseISO, startOfMonth, endOfMonth, isWeekend } from 'date-fns';
 import { 
   Calendar, 
@@ -15,7 +15,9 @@ import {
   CheckCircle,
   RefreshCw,
   Target,
-  Loader
+  Loader,
+  MapPin,
+  Building
 } from 'lucide-react';
 
 interface AutoScheduleSettings {
@@ -34,13 +36,17 @@ const Scheduling: React.FC = () => {
     state, 
     createSchedule, 
     updateSchedule, 
-    deleteSchedule 
+    deleteSchedule,
+    createBranch,
+    updateBranch
   } = useAppContext();
-  const { schedules, employees, attendance, loading, error } = state;
+  const { schedules, employees, attendance, branches, loading, error } = state;
   const [selectedWeek, setSelectedWeek] = useState(startOfWeek(new Date()));
   const [showModal, setShowModal] = useState(false);
   const [showAutoScheduleModal, setShowAutoScheduleModal] = useState(false);
+  const [showBranchModal, setShowBranchModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoScheduleSettings, setAutoScheduleSettings] = useState<AutoScheduleSettings>({
@@ -65,6 +71,18 @@ const Scheduling: React.FC = () => {
   const getEmployeeName = (employeeId: string) => {
     const employee = employees.find(emp => emp.id === employeeId);
     return employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown';
+  };
+
+  const getBranchName = (branchId: string | undefined) => {
+    if (!branchId) return 'No Branch';
+    const branch = branches.find(b => b.id === branchId);
+    return branch ? branch.name : 'Unknown Branch';
+  };
+
+  const getBranchCode = (branchId: string | undefined) => {
+    if (!branchId) return '';
+    const branch = branches.find(b => b.id === branchId);
+    return branch ? branch.code : '';
   };
 
   const getScheduleConflicts = (date: Date) => {
@@ -208,6 +226,10 @@ const Scheduling: React.FC = () => {
         // Create schedules for selected employees
         for (let index = 0; index < selectedEmployees.length; index++) {
           const employee = selectedEmployees[index];
+          // Assign branch based on employee's primary branch or round-robin
+          const assignedBranch = employee.primaryBranchId || 
+                               (branches.length > 0 ? branches[index % branches.length].id : undefined);
+          
           // Stagger start times to avoid conflicts
           const baseStartHour = 8; // 8 AM
           const startHour = baseStartHour + (index * 2); // 2-hour intervals
@@ -217,6 +239,7 @@ const Scheduling: React.FC = () => {
           if (endHour <= 20) { // Don't schedule past 8 PM
             const scheduleData = {
               employeeId: employee.id,
+              branchId: assignedBranch,
               date: format(currentDate, 'yyyy-MM-dd'),
               startTime: `${startHour.toString().padStart(2, '0')}:00`,
               endTime: `${endHour.toString().padStart(2, '0')}:00`,
@@ -310,10 +333,213 @@ const Scheduling: React.FC = () => {
 
   const workloadStats = getEmployeeWorkloadStats();
 
+  const BranchModal: React.FC = () => {
+    const [formData, setFormData] = useState<Partial<Branch>>(
+      editingBranch || {
+        name: '',
+        code: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        phoneNumber: '',
+        email: '',
+        managerName: '',
+        isActive: true,
+      }
+    );
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setIsSubmitting(true);
+      
+      try {
+        if (!formData.name || !formData.code) {
+          throw new Error('Branch name and code are required');
+        }
+
+        const branchData = formData as Omit<Branch, 'id'>;
+
+        if (editingBranch) {
+          await updateBranch(editingBranch.id, formData);
+        } else {
+          await createBranch(branchData);
+        }
+        
+        setShowBranchModal(false);
+        setEditingBranch(null);
+      } catch (error: any) {
+        console.error('Error saving branch:', error);
+        alert('Failed to save branch. Please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const { name, value, type } = e.target;
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      }));
+    };
+
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+          <div className="mt-3">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              {editingBranch ? 'Edit Branch' : 'Add New Branch'}
+            </h3>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Branch Name *</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name || ''}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Branch Code *</label>
+                  <input
+                    type="text"
+                    name="code"
+                    value={formData.code || ''}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="e.g., JDC-DT"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Address</label>
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address || ''}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">City</label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={formData.city || ''}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">State</label>
+                  <input
+                    type="text"
+                    name="state"
+                    value={formData.state || ''}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">ZIP Code</label>
+                  <input
+                    type="text"
+                    name="zipCode"
+                    value={formData.zipCode || ''}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                  <input
+                    type="tel"
+                    name="phoneNumber"
+                    value={formData.phoneNumber || ''}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email || ''}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Manager Name</label>
+                <input
+                  type="text"
+                  name="managerName"
+                  value={formData.managerName || ''}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="isActive"
+                  checked={formData.isActive || false}
+                  onChange={handleChange}
+                  className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+                <label className="ml-2 block text-sm text-gray-700">Active Branch</label>
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBranchModal(false);
+                    setEditingBranch(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isSubmitting && <Loader className="h-4 w-4 mr-2 animate-spin" />}
+                  {editingBranch ? 'Update' : 'Add'} Branch
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const ScheduleModal: React.FC = () => {
     const [formData, setFormData] = useState<Partial<Schedule>>(
       editingSchedule || {
         employeeId: '',
+        branchId: '',
         date: selectedDate,
         startTime: '09:00',
         endTime: '17:00',
@@ -382,6 +608,24 @@ const Scheduling: React.FC = () => {
                       </option>
                     );
                   })}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Branch</label>
+                <select
+                  name="branchId"
+                  value={formData.branchId || ''}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select Branch</option>
+                  {branches.filter(branch => branch.isActive).map(branch => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name} ({branch.code})
+                    </option>
+                  ))}
                 </select>
               </div>
               
@@ -641,10 +885,18 @@ const Scheduling: React.FC = () => {
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-bold text-gray-900">Smart Employee Scheduling</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Scheduling with automated workload balancing
+            Intelligent scheduling with automated workload balancing, multi-branch support, and optimization
           </p>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none space-x-3">
+          <button
+            onClick={() => setShowBranchModal(true)}
+            disabled={loading}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Building className="h-4 w-4 mr-2" />
+            Manage Branches
+          </button>
           <button
             onClick={() => setShowAutoScheduleModal(true)}
             disabled={loading}
@@ -661,6 +913,68 @@ const Scheduling: React.FC = () => {
             <Target className="h-4 w-4 mr-2" />
             Optimize
           </button>
+        </div>
+      </div>
+
+      {/* Branch Overview */}
+      <div className="bg-white rounded-lg shadow-sm border mb-6 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-gray-900">Branch Overview</h3>
+            <MapPin className="h-5 w-5 text-blue-600" />
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {branches.map((branch) => {
+              const branchSchedules = schedules.filter(s => {
+                const scheduleWeek = startOfWeek(parseISO(s.date));
+                return scheduleWeek.getTime() === selectedWeek.getTime() && s.branchId === branch.id;
+              });
+              
+              const branchEmployees = employees.filter(emp => emp.primaryBranchId === branch.id);
+              
+              return (
+                <div key={branch.id} className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-medium text-gray-900">{branch.name}</h4>
+                      <p className="text-sm text-gray-600">{branch.code}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingBranch(branch);
+                        setShowBranchModal(true);
+                      }}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">This Week:</span>
+                      <span className="font-medium">{branchSchedules.length} schedules</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Primary Staff:</span>
+                      <span className="font-medium">{branchEmployees.length} employees</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Manager:</span>
+                      <span className="font-medium">{branch.managerName || 'Not assigned'}</span>
+                    </div>
+                    {branch.city && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Location:</span>
+                        <span className="font-medium">{branch.city}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -820,6 +1134,12 @@ const Scheduling: React.FC = () => {
                           <Clock className="h-3 w-3 mr-1" />
                           {schedule.startTime} - {schedule.endTime}
                         </div>
+                        <div className="flex items-center mt-1">
+                          <MapPin className="h-3 w-3 mr-1" />
+                          <span className="text-xs">
+                            {getBranchCode(schedule.branchId) || 'No Branch'}
+                          </span>
+                        </div>
                         <div className="text-xs text-gray-600 mt-1">
                           {employee?.position}
                         </div>
@@ -946,6 +1266,7 @@ const Scheduling: React.FC = () => {
 
       {showModal && <ScheduleModal />}
       {showAutoScheduleModal && <AutoScheduleModal />}
+      {showBranchModal && <BranchModal />}
     </div>
   );
 };

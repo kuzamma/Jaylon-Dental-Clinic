@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import LoginForm from './components/LoginForm';
 import EmployeePortal from './components/EmployeePortal';
@@ -11,6 +10,7 @@ import Payroll from './pages/Payroll';
 import Reports from './pages/Reports';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { authService, User } from './lib/auth';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 type UserType = 'admin' | 'employee' | null;
 

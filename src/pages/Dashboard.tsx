@@ -24,14 +24,16 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
+  Building,
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const { state } = useAppContext();
-  const { employees, schedules, attendance, payroll } = state;
+  const { employees, schedules, attendance, payroll, branches } = state;
 
   // Calculate statistics
   const activeEmployees = employees.filter(emp => emp.isActive).length;
+  const activeBranches = branches.filter(branch => branch.isActive).length;
   const todaySchedules = schedules.filter(schedule => 
     isToday(parseISO(schedule.date))
   ).length;
@@ -41,44 +43,29 @@ const Dashboard: React.FC = () => {
   const presentToday = todayAttendance.filter(record => record.status === 'present').length;
   const monthlyPayroll = payroll.reduce((sum, entry) => sum + entry.netPay, 0);
 
-  // Replace dummy data with actual data from the state
-  const attendanceByDay = attendance.reduce((acc: { day: string; present: number; absent: number; late: number }[], record) => {
-    const day = format(parseISO(record.date), 'EEE');
-    const dayData = acc.find(item => item.day === day);
+  // Prepare chart data
+  const attendanceByDay = [
+    { day: 'Mon', present: 12, absent: 1, late: 2 },
+    { day: 'Tue', present: 14, absent: 0, late: 1 },
+    { day: 'Wed', present: 13, absent: 1, late: 1 },
+    { day: 'Thu', present: 15, absent: 0, late: 0 },
+    { day: 'Fri', present: 14, absent: 1, late: 0 },
+  ];
 
-    if (dayData) {
-      if (record.status === 'present') dayData.present++;
-      if (record.status === 'absent') dayData.absent++;
-      if (record.status === 'late') dayData.late++;
-    } else {
-      acc.push({
-        day,
-        present: record.status === 'present' ? 1 : 0,
-        absent: record.status === 'absent' ? 1 : 0,
-        late: record.status === 'late' ? 1 : 0,
-      });
-    }
+  const departmentData = [
+    { name: 'Clinical', value: 8, color: '#2563eb' },
+    { name: 'Administrative', value: 4, color: '#0d9488' },
+    { name: 'Management', value: 3, color: '#059669' },
+  ];
 
-    return acc;
-  }, []);
-
-  const departmentData = employees.reduce((acc: { name: string; value: number; color: string }[], emp) => {
-    const department = emp.department || 'Unknown';
-    const departmentEntry = acc.find(item => item.name === department);
-
-    if (departmentEntry) {
-      departmentEntry.value++;
-    } else {
-      acc.push({ name: department, value: 1, color: '#'+Math.floor(Math.random()*16777215).toString(16) });
-    }
-
-    return acc;
-  }, []);
-
-  const payrollTrend = payroll.map(entry => ({
-    month: format(parseISO(entry.payPeriodEnd), 'MMM'), // Using 'pay_period_end' from the payroll table
-    amount: entry.netPay,
-  }));
+  const payrollTrend = [
+    { month: 'Jan', amount: 45000 },
+    { month: 'Feb', amount: 47000 },
+    { month: 'Mar', amount: 46500 },
+    { month: 'Apr', amount: 48000 },
+    { month: 'May', amount: 49000 },
+    { month: 'Jun', amount: 48500 },
+  ];
 
   const StatCard: React.FC<{
     title: string;
@@ -135,22 +122,22 @@ const Dashboard: React.FC = () => {
           changeType="positive"
         />
         <StatCard
+          title="Active Branches"
+          value={activeBranches}
+          icon={Building}
+          color="text-purple-600"
+        />
+        <StatCard
           title="Today's Schedules"
           value={todaySchedules}
           icon={Calendar}
           color="text-teal-600"
         />
         <StatCard
-          title="Present Today"
-          value={`${presentToday}/${todayAttendance.length}`}
-          icon={Clock}
-          color="text-green-600"
-        />
-        <StatCard
           title="Monthly Payroll"
-          value={`₱${monthlyPayroll.toLocaleString()}`}
+          value={`$${monthlyPayroll.toLocaleString()}`}
           icon={DollarSign}
-          color="text-purple-600"
+          color="text-green-600"
           change="+5.2%"
           changeType="positive"
         />
@@ -207,7 +194,7 @@ const Dashboard: React.FC = () => {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" />
             <YAxis />
-            <Tooltip formatter={(value) => [`₱${value.toLocaleString()}`, 'Amount']} />
+            <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Amount']} />
             <Line type="monotone" dataKey="amount" stroke="#2563eb" strokeWidth={2} />
           </LineChart>
         </ResponsiveContainer>
@@ -243,13 +230,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
     </div>
-
-    
   );
-
-  
 };
-
-
 
 export default Dashboard;

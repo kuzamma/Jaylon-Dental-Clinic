@@ -9,6 +9,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  LineChart,
+  Line,
   PieChart,
   Pie,
   Cell,
@@ -26,7 +28,7 @@ import {
 
 const Reports: React.FC = () => {
   const { state } = useAppContext();
-  const { employees, attendance, payroll, schedules } = state;
+  const { employees, attendance, payroll, schedules, branches } = state;
   const [reportType, setReportType] = useState<'attendance' | 'payroll' | 'schedule'>('attendance');
   const [dateRange, setDateRange] = useState({
     start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
@@ -36,6 +38,12 @@ const Reports: React.FC = () => {
   const getEmployeeName = (employeeId: string) => {
     const employee = employees.find(emp => emp.id === employeeId);
     return employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown';
+  };
+
+  const getBranchName = (branchId: string | undefined) => {
+    if (!branchId) return 'No Branch';
+    const branch = branches.find(b => b.id === branchId);
+    return branch ? branch.name : 'Unknown Branch';
   };
 
   // Attendance Report Data
@@ -398,13 +406,13 @@ const Reports: React.FC = () => {
                       {employee.overtimeHours.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ₱{employee.grossPay.toLocaleString()}
+                      ${employee.grossPay.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ₱{employee.deductions.toLocaleString()}
+                      ${employee.deductions.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ₱{employee.netPay.toLocaleString()}
+                      ${employee.netPay.toLocaleString()}
                     </td>
                   </tr>
                 ))}
@@ -532,6 +540,9 @@ const Reports: React.FC = () => {
                     Employee
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Branch
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Total Schedules
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -553,6 +564,9 @@ const Reports: React.FC = () => {
                   <tr key={index}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {employee.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {getBranchName(schedules.find(s => s.employeeId === employees.find(e => `${e.firstName} ${e.lastName}` === employee.name)?.id)?.branchId)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {employee.total}
@@ -636,8 +650,6 @@ const Reports: React.FC = () => {
       {reportType === 'attendance' && renderAttendanceReport()}
       {reportType === 'payroll' && renderPayrollReport()}
       {reportType === 'schedule' && renderScheduleReport()}
-
-      
     </div>
   );
 };

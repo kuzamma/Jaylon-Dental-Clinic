@@ -181,7 +181,7 @@ class SupabaseAuthService {
 
         if (employeeCheckError && employeeCheckError.code === 'PGRST116') {
           // No employee record exists, create one
-          console.log('🔄 Creating missing employee record for existing OAuth user...');
+          console.log(' Creating missing employee record for existing OAuth user...');
           await this.createEmployeeForOAuthUser(supabaseUser.email, supabaseUser.user_metadata?.name || 'OAuth User', updatedUser.id);
         }
         

@@ -120,3 +120,20 @@ export interface DatabaseOwner {
   email: string;
   created_at: string;
 }
+
+export interface DatabaseBranch {
+  branch_id: number;
+  branch_name: string;
+  branch_code: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  phone_number?: string;
+  email?: string;
+  manager_name?: string;
+  is_active: boolean;
+  operating_hours?: any;
+  created_at: string;
+  updated_at: string;
+}

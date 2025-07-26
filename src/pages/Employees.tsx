@@ -13,7 +13,7 @@ const Employees: React.FC = () => {
     deleteEmployee,
     previewUserDeletion
   } = useAppContext();
-  const { employees, loading, error } = state;
+  const { employees, branches, loading, error } = state;
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -201,6 +201,7 @@ const Employees: React.FC = () => {
         phone: '',
         position: '',
         department: '',
+        primaryBranchId: '',
         hourlyRate: 0,
         hireDate: format(new Date(), 'yyyy-MM-dd'),
         isActive: true,
@@ -353,8 +354,8 @@ const Employees: React.FC = () => {
                 <input
                   type="tel"
                   name="phone"
-                  onChange={handleChange}
                   value={formData.phone || ''}
+                  onChange={handleChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
@@ -390,6 +391,23 @@ const Employees: React.FC = () => {
                   <option value="Clinical">Clinical</option>
                   <option value="Administrative">Administrative</option>
                   <option value="Management">Management</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Primary Branch</label>
+                <select
+                  name="primaryBranchId"
+                  value={formData.primaryBranchId || ''}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  <option value="">Select Primary Branch</option>
+                  {branches.filter(branch => branch.isActive).map(branch => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name} ({branch.code})
+                    </option>
+                  ))}
                 </select>
               </div>
               
@@ -543,7 +561,6 @@ const Employees: React.FC = () => {
         </div>
       </div>
     );
-
   };
 
   if (loading && employees.length === 0) {
@@ -569,7 +586,7 @@ const Employees: React.FC = () => {
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Manage your clinic's employee records with QR code generation
+            Manage your clinic's employee records with QR code generation and secure deletion options
           </p>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
@@ -633,11 +650,16 @@ const Employees: React.FC = () => {
                   {employee.phone}
                 </div>
                 <div className="text-sm text-gray-600">
-                  <span className="font-medium">Rate:</span> ₱{employee.hourlyRate}/hr
+                  <span className="font-medium">Rate:</span> ${employee.hourlyRate}/hr
                 </div>
                 <div className="text-sm text-gray-600">
                   <span className="font-medium">Hired:</span> {format(new Date(employee.hireDate), 'MMM dd, yyyy')}
                 </div>
+                {employee.primaryBranchName && (
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">Branch:</span> {employee.primaryBranchName}
+                  </div>
+                )}
               </div>
               
               <div className="mt-4 flex justify-between">
@@ -706,7 +728,6 @@ const Employees: React.FC = () => {
         />
       )}
       {showDeleteModal && <DeleteConfirmationModal />}
-     
     </div>
   );
 };
